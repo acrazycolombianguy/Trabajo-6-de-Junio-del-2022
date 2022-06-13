@@ -1,0 +1,125 @@
+---
+title: "Trabajo 6 de junio del 2022"
+author: "Sergio Daniel Carrero Arevalo"
+date: '2022-06-09'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r}
+#DATOS NUEVOS (DATOS DE LA ENTREGA)
+library(faux)
+
+set.seed(1013671265)
+dfa <- rnorm_multi(n = 1000,
+            mu = c(67, 30, 30, 320),
+            sd = c(2, 3, 5, 10),
+            varnames = c('Edad', 'dap', 'rto', 'clolA'),
+            r = c(0.4, 0.6, 0.5, 0.6, 0.7, 0.8))
+
+dfa$hibrido <- round(runif(n = 1000, min = 0,max = 1.2))
+
+w <- 0.5 * dfa$clolA - 0.01 * dfa$dap - 0.6 * dfa$rto - 0.02 * dfa$Edad
+
+dfa$abortos <- ifelse(w > 140, '1', '0') #1 es si aborto, 2 es no aborto
+dfa$abortosn <- as.numeric(dfa$abortos)
+dfa$abortosn
+
+
+data <- data.frame(dfa$Edad,
+                   dfa$dap,
+                   dfa$hibrido,
+                   dfa$rto,
+                   dfa$clolA,
+                   dfa$abortos)
+data
+
+```
+### edad: se quiere asociar la mortalidad (aborto o no en palma), germina o no germina. Se crearon 1000 datos con media de 67 con desviación estandar de 4. Esa es la edad de palma.DAP Diaetro a la altura del pecho con 1000 datos, media 30 cm y desviación de 3cm. Hibrido: se crean 1000 datos con una probabilidad de 0.6 Rendimiento de 8'kg y desviación de 5Kg redondeado a 1 decimal. Otra variable es clorofila a tienen una media de 320 y desviación estandar de 20.Z permite crear datos artificiales para ver la interaccion, aborto es si lo hizo o no. 
+
+## Análisis univariado 
+
+Paso 1 explorar la asociacion no ajustada con la salida de las variables uno por uno como abortos por edad
+
+```{r}
+univariable_edad <- glm(dfa$abortosn ~ dfa$Edad, family = binomial, data = data)
+summary(univariable_edad)
+```
+```
+## p valor muy cercano a 0 la edad esta relacionada con la mortalidad. 
+paso distancia de altura del pecho
+
+```{r}
+univariable_dap <- glm(dfa$abortosn ~ dfa$dap, family = binomial, data = data)
+summary(univariable_dap)
+```
+## El dap esta muy relacionado con la mortalidad
+
+
+```{r}
+univariable_h <- glm(dfa$abortosn ~ dfa$hibrido, family = binomial, data = data)
+summary(univariable_h) #No relacionada
+```
+
+## El hibrido no tiene nada que ver  con la mortalidad
+
+```{r}
+univariable_rto <- glm(dfa$abortosn ~ dfa$rto, family = binomial, data = data)
+summary(univariable_rto)
+```
+## La clorofila  tiene que ver  con la mortalidad, muy relacionada
+
+```{r}
+univariable_cloA <- glm(dfa$abortosn ~ dfa$clolA, family = binomial, data = data)
+summary(univariable_cloA)
+```
+
+## La clorofila  tiene que ver  con la mortalidad, muy relacionada
+Modelo comparativo con todas las variables. 
+
+```{r, warning = FALSE, message=FALSE}
+model1 <- glm(dfa$abortosn ~ dfa$Edad + dfa$dap + dfa$hibrido + dfa$rto + dfa$clolA, family = binomial, data = data)
+summary(model1)
+```
+Con base a modelo todas las variables son completamente diferente o alejadas aparentemente. 
+
+#Ninguna variable se quedo
+```{r, warning = FALSE, message=FALSE}
+model2 <- glm(dfa$abortosn ~ dfa$Edad + dfa$dap + dfa$rto + dfa$clolA, family = binomial, data = data) # Si elimina hibrido que pasaria?
+summary(model2)
+```
+#Ninguna variable se quedo
+
+```{r, warning = FALSE, message=FALSE}
+delta.coef <- abs((coef(model2)-coef(model1)[-c(4)])/coef(model1)[-c(4)])
+round(delta.coef, 6)
+#SI hay cambio superior al 20%, entonces hibrido tiene que estar dentro
+```
+
+
+## la diferencia entre modelo 2 con respecto para modelo 1 para mirar el cambio entre los coeficientes es mas del 20% la variable borrada han sido probadas importantemente en el ajuste del efecto de las variables remanentes. La variable que elimine SI TIENE una importancia en cambiar los coeficientes de las otras variables.
+```{r}
+library(lmtest)
+
+lrtest(model2, model1)
+```
+
+## Estadisticamente hablando cuando el pvalor es mayor al 5% ambos modelos son iguales. 
+
+```{r}
+anova(model2, model1, test = 'Chisq')
+```
+Los p valores son iguales, en teoria se puede quedar con el mas corto.
+Comparación de linealidad
+
+```{r}
+par(mfrow = c(2,2))
+scatter.smooth(dfa$Edad, log(pr/(1-pr)), cex = 0.5) 
+scatter.smooth(dfa$dap, log(pr/(1-pr)), cex = 0.5)
+scatter.smooth(dfa$clolA, log(pr/(1-pr)), cex = 0.5)
+scatter.smooth(dfa$rto, log(pr/(1-pr)), cex = 0.5)
+```
+
+##Ninguna variable tiene relacion lineal alguna con respecto a los abortos
